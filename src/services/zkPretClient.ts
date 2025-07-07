@@ -53,7 +53,7 @@ class ZKPretClient {
       if (this.config.serverType === 'stdio') {
         return await this.stdioHealthCheck();
       }
-      
+
       const response = await this.client!.get('/api/health');
       return { connected: true, status: response.data };
     } catch (error) {
@@ -65,23 +65,23 @@ class ZKPretClient {
     try {
       console.log('=== STDIO HEALTH CHECK ===');
       console.log('Checking path:', this.config.stdioPath);
-      
+
       const fs = await import('fs/promises');
       await fs.access(this.config.stdioPath!);
       console.log('✅ Main path exists');
-      
+
       const buildPath = path.join(this.config.stdioPath!, this.config.stdioBuildPath!);
       console.log('Checking build path:', buildPath);
       await fs.access(buildPath);
       console.log('✅ Build path exists');
-      
+
       // Check for compiled JavaScript files - Updated with correct filenames
       const jsFiles = [
         'GLEIFOptimMultiCompanyVerificationTestWithSign.js',  // FIXED: Use the actual optimized filename
         'CorporateRegistrationOptimMultiCompanyVerificationTestWithSign.js',  // FIXED: Use the actual optimized filename
         'EXIMOptimMultiCompanyVerificationTestWithSign.js'  // FIXED: Use the actual optimized filename
       ];
-      
+
       console.log('Checking for compiled JavaScript files:');
       for (const file of jsFiles) {
         const filePath = path.join(buildPath, file);
@@ -92,9 +92,9 @@ class ZKPretClient {
           console.log(`❌ Missing: ${file}`);
         }
       }
-      
+
       console.log('=========================');
-      
+
       return {
         connected: true,
         status: { mode: 'stdio', path: this.config.stdioPath, buildPath }
@@ -110,7 +110,7 @@ class ZKPretClient {
       if (this.config.serverType === 'stdio') {
         return this.getStdioTools();
       }
-      
+
       const response = await this.client!.get('/api/tools');
       return response.data.tools || [];
     } catch (error) {
@@ -120,22 +120,22 @@ class ZKPretClient {
           `Auto-fallback to STDIO mode is disabled. ` +
           `Please ensure the ZK-PRET HTTP server is running on the expected port. ` +
           `Original error: ${error instanceof Error ? error.message : String(error)}`;
-        
+
         logger.error('HTTP server connection failed - no fallback allowed', {
           serverUrl: this.config.serverUrl,
           disableAutoFallback: this.config.disableAutoFallback,
           error: error instanceof Error ? error.message : String(error)
         });
-        
+
         throw new Error(errorMessage);
       }
-      
+
       // Legacy behavior: fallback to STDIO tools when auto-fallback is enabled
       logger.warn('HTTP server unavailable, falling back to STDIO tools', {
         serverUrl: this.config.serverUrl,
         error: error instanceof Error ? error.message : String(error)
       });
-      
+
       return this.getStdioTools();
     }
   }
@@ -163,15 +163,15 @@ class ZKPretClient {
 
   async executeTool(toolName: string, parameters: any = {}): Promise<ToolExecutionResult> {
     const startTime = Date.now();
-    
+
     try {
       console.log('=== TOOL EXECUTION START ===');
       console.log('Tool Name:', toolName);
       console.log('Parameters:', JSON.stringify(parameters, null, 2));
       console.log('Server Type:', this.config.serverType);
-      
+
       let result;
-      
+
       if (this.config.serverType === 'stdio') {
         result = await this.executeStdioTool(toolName, parameters);
       } else {
@@ -185,35 +185,35 @@ class ZKPretClient {
               `Auto-fallback to STDIO mode is disabled. ` +
               `Please ensure the ZK-PRET HTTP server is running and accessible. ` +
               `Original error: ${httpError instanceof Error ? httpError.message : String(httpError)}`;
-            
+
             logger.error('HTTP server execution failed - no fallback allowed', {
               toolName,
               serverUrl: this.config.serverUrl,
               disableAutoFallback: this.config.disableAutoFallback,
               error: httpError instanceof Error ? httpError.message : String(httpError)
             });
-            
+
             throw new Error(errorMessage);
           }
-          
+
           // Legacy behavior: fallback to STDIO execution when auto-fallback is enabled
           logger.warn('HTTP server execution failed, falling back to STDIO execution', {
             toolName,
             serverUrl: this.config.serverUrl,
             error: httpError instanceof Error ? httpError.message : String(httpError)
           });
-          
+
           result = await this.executeStdioTool(toolName, parameters);
         }
       }
 
       const executionTime = Date.now() - startTime;
-      
+
       console.log('=== TOOL EXECUTION SUCCESS ===');
       console.log('Execution Time:', `${executionTime}ms`);
       console.log('Result Success:', result.success);
       console.log('==============================');
-      
+
       return {
         success: result.success,
         result: result.result || {
@@ -226,12 +226,12 @@ class ZKPretClient {
       };
     } catch (error) {
       const executionTime = Date.now() - startTime;
-      
+
       console.log('=== TOOL EXECUTION FAILED ===');
       console.log('Error:', error instanceof Error ? error.message : String(error));
       console.log('Execution Time:', `${executionTime}ms`);
       console.log('=============================');
-      
+
       return {
         success: false,
         result: {
@@ -275,33 +275,33 @@ class ZKPretClient {
     console.log('Tool Name:', toolName);
     console.log('Script File:', scriptFile);
     console.log('============================');
-    
+
     return await this.executePreCompiledScript(scriptFile, parameters, toolName);
   }
 
   async executePreCompiledScript(scriptFile: string, parameters: any = {}, toolName?: string): Promise<any> {
     const compiledScriptPath = path.join(this.config.stdioPath!, this.config.stdioBuildPath!, scriptFile);
-    
+
     console.log('🔍 Checking for pre-compiled JavaScript file...');
     console.log('Expected compiled script path:', compiledScriptPath);
-    
+
     if (!existsSync(compiledScriptPath)) {
       console.log('❌ Pre-compiled JavaScript file not found');
       console.log('🔧 Attempting to build the project first...');
-      
+
       const buildSuccess = await this.buildProject();
       if (!buildSuccess) {
         throw new Error(`Pre-compiled JavaScript file not found: ${compiledScriptPath}. Please run 'npm run build' in the ZK-PRET-TEST-V3 directory first.`);
       }
-      
+
       if (!existsSync(compiledScriptPath)) {
         throw new Error(`Build completed but compiled file still not found: ${compiledScriptPath}`);
       }
     }
-    
+
     console.log('✅ Pre-compiled JavaScript file found');
     console.log('🚀 Executing compiled JavaScript file...');
-    
+
     return await this.executeJavaScriptFile(compiledScriptPath, parameters, toolName);
   }
 
@@ -309,7 +309,7 @@ class ZKPretClient {
     return new Promise((resolve) => {
       console.log('🔨 Building ZK-PRET project...');
       console.log('Working directory:', this.config.stdioPath);
-      
+
       const buildProcess = spawn('npm', ['run', 'build'], {
         cwd: this.config.stdioPath,
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -353,18 +353,18 @@ class ZKPretClient {
   async executeJavaScriptFile(scriptPath: string, parameters: any = {}, toolName?: string): Promise<any> {
     return new Promise((resolve, reject) => {
       const args = this.prepareScriptArgs(parameters, toolName);
-      
+
       console.log('=== JAVASCRIPT EXECUTION DEBUG ===');
       console.log('Script Path:', scriptPath);
       console.log('Working Directory:', this.config.stdioPath);
       console.log('Arguments:', args);
       console.log('Full Command:', `node ${scriptPath} ${args.join(' ')}`);
       console.log('===================================');
-      
+
       const nodeProcess = spawn('node', [scriptPath, ...args], {
         cwd: this.config.stdioPath,
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: { 
+        env: {
           ...process.env,
           NODE_ENV: 'production'
         }
@@ -399,16 +399,16 @@ class ZKPretClient {
         if (!isResolved) {
           isResolved = true;
           clearTimeout(timeoutId);
-          
+
           console.log('=== JAVASCRIPT EXECUTION COMPLETE ===');
           console.log('Exit Code:', code);
           console.log('Final STDOUT Length:', stdout.length);
           console.log('Final STDERR Length:', stderr.length);
           console.log('=====================================');
-          
+
           if (code === 0) {
             console.log('✅ JAVASCRIPT EXECUTION SUCCESSFUL');
-            
+
             // Parse actual proof data from stdout if available
             let proofData = null;
             let zkProof = null;
@@ -422,7 +422,7 @@ class ZKPretClient {
             } catch (e) {
               console.log('No parseable proof data found in output');
             }
-            
+
             resolve({
               success: true,
               result: {
@@ -461,44 +461,44 @@ class ZKPretClient {
 
   extractExecutionMetrics(output: string): any {
     const metrics: any = {};
-    
+
     try {
       // Extract timing information
       const timingMatches = output.match(/\b(\d+)\s*ms\b/g);
       if (timingMatches) {
         metrics.timings = timingMatches.map(t => t.replace(/\s*ms\b/, ''));
       }
-      
+
       // Extract proof generation info
       if (output.includes('Proof generated successfully')) {
         metrics.proofGenerated = true;
       }
-      
+
       // Extract circuit compilation info
       if (output.includes('Circuit compiled')) {
         metrics.circuitCompiled = true;
       }
-      
+
       // Extract verification info
       if (output.includes('Verification successful')) {
         metrics.verificationSuccessful = true;
       }
-      
+
       // Extract GLEIF-specific metrics
       if (output.includes('GLEIF data fetched')) {
         metrics.gleifDataFetched = true;
       }
-      
+
       // Extract any numeric metrics
       const numericMatches = output.match(/\b\d+\s*(bytes|kb|mb)\b/gi);
       if (numericMatches) {
         metrics.sizeMetrics = numericMatches;
       }
-      
+
     } catch (error) {
       console.log('Error extracting metrics:', error);
     }
-    
+
     return metrics;
   }
 
@@ -506,9 +506,9 @@ class ZKPretClient {
     console.log('=== PREPARING SCRIPT ARGS ===');
     console.log('Tool Name:', toolName);
     console.log('Input parameters:', parameters);
-    
+
     const args: string[] = [];
-    
+
     // Handle different verification types with their specific parameter requirements
     switch (toolName) {
       case 'get-GLEIF-verification-with-sign':
@@ -521,7 +521,7 @@ class ZKPretClient {
         args.push('TESTNET');
         console.log('Added GLEIF arg 2 (network type): "TESTNET"');
         break;
-        
+
       case 'get-BSDI-compliance-verification':
         // BSDI verification expects: [filePath] as the only argument
         // Check for new command pattern first (supports DCSA Bill of Lading)
@@ -542,7 +542,7 @@ class ZKPretClient {
           }
         }
         break;
-        
+
       case 'get-Corporate-Registration-verification-with-sign':
         // Corporate Registration verification expects: [cin, TESTNET]
         const cin = parameters.cin;
@@ -555,7 +555,7 @@ class ZKPretClient {
         args.push('TESTNET');
         console.log('Added Corporate Registration arg 2 (network type): "TESTNET"');
         break;
-        
+
       case 'get-EXIM-verification-with-sign':
         // EXIM verification expects: [companyName, TESTNET]
         const eximCompanyName = parameters.companyName || parameters.legalName || parameters.entityName;
@@ -568,25 +568,25 @@ class ZKPretClient {
         args.push('TESTNET');
         console.log('Added EXIM arg 2 (network type): "TESTNET"');
         break;
-        
+
       case 'get-Composed-Compliance-verification-with-sign':
         // Composed Compliance verification expects: [companyName, cin]
         const composedCompanyName = parameters.companyName || 'SREE PALANI ANDAVAR AGROS PRIVATE LIMITED';
         const composedCin = parameters.cin || 'U01112TZ2022PTC039493';
-        
+
         args.push(String(composedCompanyName));
         console.log(`Added Composed Compliance arg 1 (company name): "${composedCompanyName}"`);
-        
+
         args.push(String(composedCin));
         console.log(`Added Composed Compliance arg 2 (CIN): "${composedCin}"`);
         break;
-        
+
       case 'get-BPI-compliance-verification':
         // Business Process Integrity verification expects: [processType, expectedFilePath, actualFilePath]
         const processType = parameters.processType;
         const expectedFileName = parameters.expectedProcessFile;
         const actualFileName = parameters.actualProcessFile;
-        
+
         if (processType) {
           args.push(String(processType));
           console.log(`Added BPI arg 1 (process type): "${processType}"`);
@@ -595,17 +595,17 @@ class ZKPretClient {
           args.push('SCF'); // Default to SCF
           console.log('Added BPI arg 1 (default process type): "SCF"');
         }
-        
+
         // Map to actual file paths using environment variables
         const basePath = this.config.stdioPath!;
         let expectedFilePath, actualFilePath;
-        
+
         if (processType === 'SCF') {
           const expectedRelPath = process.env.ZK_PRET_DATA_PROCESS_PATH_SCF_EXPECTED || './src/data/SCF/process/EXPECTED';
           const actualRelPath = process.env.ZK_PRET_DATA_PROCESS_PATH_SCF_ACTUAL || './src/data/SCF/process/ACTUAL';
-          
+
           expectedFilePath = `${expectedRelPath}/bpmn-SCF-Example-Process-Expected.bpmn`;
-          
+
           // Intelligent mapping based on uploaded filename
           if (actualFileName && actualFileName.includes('Accepted-1')) {
             actualFilePath = `${actualRelPath}/bpmn-SCF-Example-Execution-Actual-Accepted-1.bpmn`;
@@ -621,9 +621,9 @@ class ZKPretClient {
         } else if (processType === 'DVP') {
           const expectedRelPath = process.env.ZK_PRET_DATA_PROCESS_PATH_DVP_EXPECTED || './src/data/DVP/process/EXPECTED';
           const actualRelPath = process.env.ZK_PRET_DATA_PROCESS_PATH_DVP_ACTUAL || './src/data/DVP/process/ACTUAL';
-          
+
           expectedFilePath = `${expectedRelPath}/bpmnCircuitDVP-expected.bpmn`;
-          
+
           // Intelligent mapping for DVP files
           if (actualFileName && actualFileName.includes('accepted1')) {
             actualFilePath = `${actualRelPath}/bpmnCircuitDVP-accepted1.bpmn`;
@@ -639,9 +639,9 @@ class ZKPretClient {
         } else if (processType === 'STABLECOIN') {
           const expectedRelPath = process.env.ZK_PRET_DATA_PROCESS_PATH_STABLECOIN_EXPECTED || './src/data/STABLECOIN/EXPECTED';
           const actualRelPath = process.env.ZK_PRET_DATA_PROCESS_PATH_STABLECOIN_ACTUAL || './src/data/STABLECOIN/process/ACTUAL';
-          
+
           expectedFilePath = `${expectedRelPath}/bpmnCircuitSTABLECOIN-expected.bpmn`;
-          
+
           // Intelligent mapping for STABLECOIN files
           if (actualFileName && actualFileName.includes('accepted1')) {
             actualFilePath = `${actualRelPath}/bpmnCircuitSTABLECOIN-accepted1.bpmn`;
@@ -661,23 +661,22 @@ class ZKPretClient {
           expectedFilePath = `${expectedRelPath}/bpmn-SCF-Example-Process-Expected.bpmn`;
           actualFilePath = `${actualRelPath}/bpmn-SCF-Example-Execution-Actual-Accepted-1.bpmn`;
         }
-        
+
         args.push(expectedFilePath);
         console.log(`Added BPI arg 2 (expected file path): "${expectedFilePath}"`);
-        
+
         args.push(actualFilePath);
         console.log(`Added BPI arg 3 (actual file path): "${actualFilePath}"`);
-        
+
         console.log(`Final BPI command: node script.js "${processType}" "${expectedFilePath}" "${actualFilePath}"`);
         break;
-        
+
       case 'get-RiskLiquidityACTUS-Verifier-Test_adv_zk':
       case 'get-RiskLiquidityACTUS-Verifier-Test_Basel3_Withsign':
-      case 'get-StablecoinProofOfReservesRisk-verification-with-sign':
         // Risk & Liquidity verification expects: [threshold, actusUrl]
         const threshold = parameters.threshold;
         const actusUrl = parameters.actusUrl;
-        
+
         if (threshold !== undefined) {
           args.push(String(threshold));
           console.log(`Added Risk arg 1 (threshold): "${threshold}"`);
@@ -686,34 +685,34 @@ class ZKPretClient {
           args.push('1'); // Default threshold to 1 as requested
           console.log('Added Risk arg 1 (default threshold): "1"');
         }
-        
+
         if (actusUrl) {
           args.push(String(actusUrl));
           console.log(`Added Risk arg 2 (ACTUS URL): "${actusUrl}"`);
         } else {
           console.log('⚠️  No ACTUS URL found for Risk verification');
-          const defaultActusUrl = process.env.ACTUS_SERVER_URL || 'http://98.84.165.146:8083/eventsBatch';
+          const defaultActusUrl = process.env.ACTUS_SERVER_URL || 'http://3.88.158.37:8083/eventsBatch';
           args.push(defaultActusUrl);
           console.log(`Added Risk arg 2 (default ACTUS URL): "${defaultActusUrl}"`);
         }
         break;
-        
+
       case 'get-RiskLiquidityBasel3Optim-Merkle-verification-with-sign':
         // Basel III verification expects: [lcrThreshold, nsfrThreshold, actusUrl, configFilePath]
         const lcrThreshold = parameters.lcrThreshold || 100;
         const nsfrThreshold = parameters.nsfrThreshold || 100;
-        const basel3ActusUrl = parameters.actusUrl || process.env.ACTUS_SERVER_URL || 'http://98.84.165.146:8083/eventsBatch';
+        const basel3ActusUrl = parameters.actusUrl || process.env.ACTUS_SERVER_URL || 'http://3.88.158.37:8083/eventsBatch';
         const configFilePath = parameters.configFilePath;
-        
+
         args.push(String(lcrThreshold));
         console.log(`Added Basel III arg 1 (LCR threshold): "${lcrThreshold}"`);
-        
+
         args.push(String(nsfrThreshold));
         console.log(`Added Basel III arg 2 (NSFR threshold): "${nsfrThreshold}"`);
-        
+
         args.push(String(basel3ActusUrl));
         console.log(`Added Basel III arg 3 (ACTUS URL): "${basel3ActusUrl}"`);
-        
+
         if (configFilePath) {
           args.push(String(configFilePath));
           console.log(`Added Basel III arg 4 (config file path): "${configFilePath}"`);
@@ -724,20 +723,20 @@ class ZKPretClient {
           console.log(`Added Basel III arg 4 (default config): "${defaultConfigPath}"`);
         }
         break;
-        
+
       case 'get-RiskLiquidityAdvancedOptimMerkle-verification-with-sign':
         // Risk Advanced verification expects: [liquidityThreshold, actusUrl, configFilePath, executionMode]
         const liquidityThreshold = parameters.liquidityThreshold || 100;
-        const advancedActusUrl = parameters.actusUrl || process.env.ACTUS_SERVER_URL || 'http://98.84.165.146:8083/eventsBatch';
+        const advancedActusUrl = parameters.actusUrl || process.env.ACTUS_SERVER_URL || 'http://3.88.158.37:8083/eventsBatch';
         const advancedConfigFilePath = parameters.configFilePath;
         const executionMode = parameters.executionMode || 'ultra_strict';
-        
+
         args.push(String(liquidityThreshold));
         console.log(`Added Risk Advanced arg 1 (liquidity threshold): "${liquidityThreshold}"`);
-        
+
         args.push(String(advancedActusUrl));
         console.log(`Added Risk Advanced arg 2 (ACTUS URL): "${advancedActusUrl}"`);
-        
+
         if (advancedConfigFilePath) {
           args.push(String(advancedConfigFilePath));
           console.log(`Added Risk Advanced arg 3 (config file path): "${advancedConfigFilePath}"`);
@@ -747,11 +746,35 @@ class ZKPretClient {
           args.push(defaultAdvancedConfigPath);
           console.log(`Added Risk Advanced arg 3 (default config): "${defaultAdvancedConfigPath}"`);
         }
-        
+
         args.push(String(executionMode));
         console.log(`Added Risk Advanced arg 4 (execution mode): "${executionMode}"`);
         break;
         
+      case 'get-StablecoinProofOfReservesRisk-verification-with-sign':
+        // Stablecoin verification expects: [threshold, actusUrl, configFilePath, executionMode, jurisdiction]
+        const stablecoinThreshold = parameters.liquidityThreshold || parameters.threshold || 100;
+        const stablecoinActusUrl = parameters.actusUrl || process.env.ACTUS_SERVER_URL || 'http://3.88.158.37:8083/eventsBatch';
+        const stablecoinConfigFilePath = parameters.configFilePath || 'src/data/RISK/StableCoin/CONFIG/US/StableCoin-VALID-1.json';
+        const stablecoinExecutionMode = parameters.executionMode || 'ultra_strict';
+        const stablecoinJurisdiction = parameters.jurisdiction || 'US';
+        
+        args.push(String(stablecoinThreshold));
+        console.log(`Added Stablecoin arg 1 (threshold): "${stablecoinThreshold}"`);
+        
+        args.push(String(stablecoinActusUrl));
+        console.log(`Added Stablecoin arg 2 (ACTUS URL): "${stablecoinActusUrl}"`);
+        
+        args.push(String(stablecoinConfigFilePath));
+        console.log(`Added Stablecoin arg 3 (config file path): "${stablecoinConfigFilePath}"`);
+        
+        args.push(String(stablecoinExecutionMode));
+        console.log(`Added Stablecoin arg 4 (execution mode): "${stablecoinExecutionMode}"`);
+        
+        args.push(String(stablecoinJurisdiction));
+        console.log(`Added Stablecoin arg 5 (jurisdiction): "${stablecoinJurisdiction}"`);
+        break;
+
       default:
         // For other verification types, use the original logic as fallback
         const fallbackCompanyName = parameters.legalName || parameters.entityName || parameters.companyName;
@@ -763,11 +786,11 @@ class ZKPretClient {
         console.log('Added fallback arg 2 (network type): "TESTNET"');
         break;
     }
-    
+
     console.log('Final args array:', args);
     console.log('Command will be: node script.js', args.map(arg => `"${arg}"`).join(' '));
     console.log('=============================');
-    
+
     return args;
   }
 
@@ -787,7 +810,7 @@ class ZKPretClient {
           serverType: 'stdio'
         };
       }
-      
+
       const response = await this.client!.get('/api/health');
       return {
         connected: true,

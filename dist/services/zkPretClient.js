@@ -605,7 +605,6 @@ class ZKPretClient {
                 break;
             case 'get-RiskLiquidityACTUS-Verifier-Test_adv_zk':
             case 'get-RiskLiquidityACTUS-Verifier-Test_Basel3_Withsign':
-            case 'get-StablecoinProofOfReservesRisk-verification-with-sign':
                 // Risk & Liquidity verification expects: [threshold, actusUrl]
                 const threshold = parameters.threshold;
                 const actusUrl = parameters.actusUrl;
@@ -624,7 +623,7 @@ class ZKPretClient {
                 }
                 else {
                     console.log('⚠️  No ACTUS URL found for Risk verification');
-                    const defaultActusUrl = process.env.ACTUS_SERVER_URL || 'http://98.84.165.146:8083/eventsBatch';
+                    const defaultActusUrl = process.env.ACTUS_SERVER_URL || 'http://3.88.158.37:8083/eventsBatch';
                     args.push(defaultActusUrl);
                     console.log(`Added Risk arg 2 (default ACTUS URL): "${defaultActusUrl}"`);
                 }
@@ -633,7 +632,7 @@ class ZKPretClient {
                 // Basel III verification expects: [lcrThreshold, nsfrThreshold, actusUrl, configFilePath]
                 const lcrThreshold = parameters.lcrThreshold || 100;
                 const nsfrThreshold = parameters.nsfrThreshold || 100;
-                const basel3ActusUrl = parameters.actusUrl || process.env.ACTUS_SERVER_URL || 'http://98.84.165.146:8083/eventsBatch';
+                const basel3ActusUrl = parameters.actusUrl || process.env.ACTUS_SERVER_URL || 'http://3.88.158.37:8083/eventsBatch';
                 const configFilePath = parameters.configFilePath;
                 args.push(String(lcrThreshold));
                 console.log(`Added Basel III arg 1 (LCR threshold): "${lcrThreshold}"`);
@@ -655,7 +654,7 @@ class ZKPretClient {
             case 'get-RiskLiquidityAdvancedOptimMerkle-verification-with-sign':
                 // Risk Advanced verification expects: [liquidityThreshold, actusUrl, configFilePath, executionMode]
                 const liquidityThreshold = parameters.liquidityThreshold || 100;
-                const advancedActusUrl = parameters.actusUrl || process.env.ACTUS_SERVER_URL || 'http://98.84.165.146:8083/eventsBatch';
+                const advancedActusUrl = parameters.actusUrl || process.env.ACTUS_SERVER_URL || 'http://3.88.158.37:8083/eventsBatch';
                 const advancedConfigFilePath = parameters.configFilePath;
                 const executionMode = parameters.executionMode || 'ultra_strict';
                 args.push(String(liquidityThreshold));
@@ -674,6 +673,24 @@ class ZKPretClient {
                 }
                 args.push(String(executionMode));
                 console.log(`Added Risk Advanced arg 4 (execution mode): "${executionMode}"`);
+                break;
+            case 'get-StablecoinProofOfReservesRisk-verification-with-sign':
+                // Stablecoin verification expects: [threshold, actusUrl, configFilePath, executionMode, jurisdiction]
+                const stablecoinThreshold = parameters.liquidityThreshold || parameters.threshold || 100;
+                const stablecoinActusUrl = parameters.actusUrl || process.env.ACTUS_SERVER_URL || 'http://3.88.158.37:8083/eventsBatch';
+                const stablecoinConfigFilePath = parameters.configFilePath || 'src/data/RISK/StableCoin/CONFIG/US/StableCoin-VALID-1.json';
+                const stablecoinExecutionMode = parameters.executionMode || 'ultra_strict';
+                const stablecoinJurisdiction = parameters.jurisdiction || 'US';
+                args.push(String(stablecoinThreshold));
+                console.log(`Added Stablecoin arg 1 (threshold): "${stablecoinThreshold}"`);
+                args.push(String(stablecoinActusUrl));
+                console.log(`Added Stablecoin arg 2 (ACTUS URL): "${stablecoinActusUrl}"`);
+                args.push(String(stablecoinConfigFilePath));
+                console.log(`Added Stablecoin arg 3 (config file path): "${stablecoinConfigFilePath}"`);
+                args.push(String(stablecoinExecutionMode));
+                console.log(`Added Stablecoin arg 4 (execution mode): "${stablecoinExecutionMode}"`);
+                args.push(String(stablecoinJurisdiction));
+                console.log(`Added Stablecoin arg 5 (jurisdiction): "${stablecoinJurisdiction}"`);
                 break;
             default:
                 // For other verification types, use the original logic as fallback
