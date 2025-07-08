@@ -22,10 +22,19 @@ class ZKPretUnifiedClient {
             disableAutoFallback: process.env.ZK_PRET_DISABLE_AUTO_FALLBACK === 'true'
         };
         // Initialize HTTP client for when needed
+        const headers = {
+            'Content-Type': 'application/json',
+            'User-Agent': 'ZK-PRET-UNIFIED-APP/1.0.0'
+        };
+        // Add API key if available
+        const apiKey = process.env.ZK_PRET_API_KEY;
+        if (apiKey) {
+            headers['X-API-Key'] = apiKey;
+        }
         this.httpClient = axios.create({
             baseURL: this.config.serverUrl,
             timeout: this.config.timeout,
-            headers: { 'Content-Type': 'application/json', 'User-Agent': 'ZK-PRET-UNIFIED-APP/1.0.0' }
+            headers
         });
         // Listen to mode changes
         modeManager.onModeChange((mode) => {

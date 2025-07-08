@@ -515,11 +515,13 @@ app.get('/api/v1/process-files/:processType/:fileType', async (req, res) => {
 // ACTUS Configuration API - Get ACTUS server URL from environment
 app.get('/api/v1/actus-config', async (_req, res) => {
   try {
-    const actusUrl = process.env.ACTUS_SERVER_URL || 'http://98.84.165.146:8083/eventsBatch';
+    // SERVER MANAGES ACTUS URL: Use server's environment, not UI environment
+    const actusUrl = process.env.ACTUS_SERVER_URL || 'http://3.88.158.37:8083/eventsBatch';
     
     res.json({ 
       actusUrl: actusUrl,
-      source: 'environment'
+      source: 'server-environment',
+      note: 'ACTUS URL managed by server environment variables'
     });
     
   } catch (error) {

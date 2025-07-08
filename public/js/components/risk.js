@@ -5,7 +5,7 @@ class RiskComponent {
         try {
             this.currentRiskTab = 'basel3'; // Default to Basel III Compliance tab
             this.showStateChanges = false;
-            this.actusUrl = 'http://98.84.165.146:8083/eventsBatch'; // Default fallback
+            this.actusUrl = 'http://3.88.158.37:8083/eventsBatch'; // Updated ACTUS URL
             
             console.log('📌 Starting RiskComponent render...');
             this.render();
@@ -216,7 +216,7 @@ class RiskComponent {
                             </label>
                             <input type="url" id="stablecoin-actus-url" class="form-input bg-gray-50" 
                                    value="${this.getDefaultActusUrl()}" readonly>
-                            <div class="text-xs text-gray-500 mt-1">ACTUS framework server endpoint (configured)</div>
+                            <div class="text-xs text-gray-500 mt-1">ACTUS framework server endpoint (configured on server)</div>
                         </div>
 
                         <div>
@@ -710,7 +710,6 @@ class RiskComponent {
         const jurisdiction = document.getElementById('stablecoin-jurisdiction-select')?.value;
         const situation = document.getElementById('stablecoin-situation-select')?.value;
         const liquidityThreshold = document.getElementById('stablecoin-liquidity-threshold')?.value;
-        const actusUrl = document.getElementById('stablecoin-actus-url')?.value;
         const executionMode = document.getElementById('stablecoin-execution-mode')?.value;
         
         // Validate required fields
@@ -726,11 +725,6 @@ class RiskComponent {
         
         if (!liquidityThreshold) {
             this.showNotification('Missing Information', 'Please enter a liquidity threshold', 'error');
-            return;
-        }
-        
-        if (!actusUrl) {
-            this.showNotification('Missing Information', 'ACTUS URL is required', 'error');
             return;
         }
         
@@ -750,17 +744,17 @@ class RiskComponent {
         const relativeConfigPath = `src/data/RISK/StableCoin/CONFIG/${jurisdiction}/${situation}`;
         
         const parameters = {
-            command: 'node ./build/tests/with-sign/StablecoinProofOfReservesRiskVerificationTestWithSign.js',
             jurisdiction: jurisdiction,
             situation: situation,
             liquidityThreshold: thresholdValue,
-            actusUrl: actusUrl,
             executionMode: executionMode,
             configFilePath: relativeConfigPath,
             typeOfNet: 'TESTNET'
+            // ✅ REMOVED: actusUrl - server will handle URL configuration
+            // ✅ REMOVED: command - server will determine the correct script
         };
 
-        console.log('Executing stablecoin verification with parameters:', parameters);
+        console.log('Executing stablecoin verification with parameters (URL handled by server):', parameters);
         
         const toolName = 'get-StablecoinProofOfReservesRisk-verification-with-sign';
         await this.executeRiskVerification(toolName, parameters);
@@ -976,8 +970,8 @@ class RiskComponent {
     }
     
     getDefaultActusUrl() {
-        // Return the instance variable that was loaded from server environment
-        return this.actusUrl || 'http://98.84.165.146:8083/eventsBatch';
+        // Return the updated ACTUS URL for display in UI
+        return this.actusUrl || 'http://3.88.158.37:8083/eventsBatch';
     }
 
     showNotification(title, message, type) {

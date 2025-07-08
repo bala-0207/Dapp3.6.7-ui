@@ -26,10 +26,21 @@ class ZKPretClient {
     };
 
     if (this.config.serverType !== 'stdio') {
+      const headers: any = {
+        'Content-Type': 'application/json',
+        'User-Agent': 'ZK-PRET-WEB-APP/1.0.0'
+      };
+      
+      // Add API key if available
+      const apiKey = process.env.ZK_PRET_API_KEY;
+      if (apiKey) {
+        headers['X-API-Key'] = apiKey;
+      }
+      
       this.client = axios.create({
         baseURL: this.config.serverUrl,
         timeout: this.config.timeout,
-        headers: { 'Content-Type': 'application/json', 'User-Agent': 'ZK-PRET-WEB-APP/1.0.0' }
+        headers
       });
     }
   }
@@ -258,7 +269,7 @@ class ZKPretClient {
       'get-RiskLiquidityACTUS-Verifier-Test_Basel3_Withsign': 'RiskLiquidityACTUSVerifierTest_basel3_Withsign.js',
       'get-RiskLiquidityBasel3Optim-Merkle-verification-with-sign': 'RiskLiquidityBasel3OptimMerkleVerificationTestWithSign.js',  // FIXED: Add Basel III mapping
       'get-RiskLiquidityAdvancedOptimMerkle-verification-with-sign': 'RiskLiquidityAdvancedOptimMerkleVerificationTestWithSign.js',  // NEW: Risk Advanced mapping
-      'get-StablecoinProofOfReservesRisk-verification-with-sign': 'StablecoinProofOfReservesRiskVerificationTestWithSign.js',
+      'get-StablecoinProofOfReservesRisk-verification-with-sign': 'RiskLiquidityStableCoinOptimMerkleVerificationTestWithSign.js',
       // Composed proof tools - using optimized recursive versions
       'execute-composed-proof-full-kyc': 'ComposedRecursiveOptim3LevelVerificationTestWithSign.js',  // FIXED: Use actual optimized version
       'execute-composed-proof-financial-risk': 'ComposedRecurrsiveSCF3LevelProofs.js',  // FIXED: Use actual SCF proof version
@@ -673,28 +684,13 @@ class ZKPretClient {
 
       case 'get-RiskLiquidityACTUS-Verifier-Test_adv_zk':
       case 'get-RiskLiquidityACTUS-Verifier-Test_Basel3_Withsign':
-        // Risk & Liquidity verification expects: [threshold, actusUrl]
-        const threshold = parameters.threshold;
-        const actusUrl = parameters.actusUrl;
-
-        if (threshold !== undefined) {
-          args.push(String(threshold));
-          console.log(`Added Risk arg 1 (threshold): "${threshold}"`);
-        } else {
-          console.log('⚠️  No threshold found for Risk verification');
-          args.push('1'); // Default threshold to 1 as requested
-          console.log('Added Risk arg 1 (default threshold): "1"');
-        }
-
-        if (actusUrl) {
-          args.push(String(actusUrl));
-          console.log(`Added Risk arg 2 (ACTUS URL): "${actusUrl}"`);
-        } else {
-          console.log('⚠️  No ACTUS URL found for Risk verification');
-          const defaultActusUrl = process.env.ACTUS_SERVER_URL || 'http://3.88.158.37:8083/eventsBatch';
-          args.push(defaultActusUrl);
-          console.log(`Added Risk arg 2 (default ACTUS URL): "${defaultActusUrl}"`);
-        }
+        // Risk & Liquidity verification - SERVER HANDLES ACTUS URL
+        // UI only sends threshold, server manages ACTUS URL internally
+        const threshold = parameters.threshold || parameters.liquidityThreshold || 95;
+        
+        args.push(String(threshold));
+        console.log(`Added Risk arg 1 (threshold): "${threshold}"`);
+        console.log('Note: ACTUS URL will be handled by server, not sent from UI');
         break;
 
       case 'get-RiskLiquidityBasel3Optim-Merkle-verification-with-sign':
@@ -752,9 +748,9 @@ class ZKPretClient {
         break;
         
       case 'get-StablecoinProofOfReservesRisk-verification-with-sign':
-        // Stablecoin verification expects: [threshold, actusUrl, configFilePath, executionMode, jurisdiction]
+        // Stablecoin verification - SERVER HANDLES ACTUS URL VIA ENVIRONMENT VARIABLES
+        // UI only sends business parameters, server manages infrastructure
         const stablecoinThreshold = parameters.liquidityThreshold || parameters.threshold || 100;
-        const stablecoinActusUrl = parameters.actusUrl || process.env.ACTUS_SERVER_URL || 'http://3.88.158.37:8083/eventsBatch';
         const stablecoinConfigFilePath = parameters.configFilePath || 'src/data/RISK/StableCoin/CONFIG/US/StableCoin-VALID-1.json';
         const stablecoinExecutionMode = parameters.executionMode || 'ultra_strict';
         const stablecoinJurisdiction = parameters.jurisdiction || 'US';
@@ -762,17 +758,17 @@ class ZKPretClient {
         args.push(String(stablecoinThreshold));
         console.log(`Added Stablecoin arg 1 (threshold): "${stablecoinThreshold}"`);
         
-        args.push(String(stablecoinActusUrl));
-        console.log(`Added Stablecoin arg 2 (ACTUS URL): "${stablecoinActusUrl}"`);
+        // NOTE: ACTUS URL is NO LONGER sent from UI - server uses environment variable
+        console.log('NOTE: ACTUS URL will be read from server environment variable ACTUS_SERVER_URL');
         
         args.push(String(stablecoinConfigFilePath));
-        console.log(`Added Stablecoin arg 3 (config file path): "${stablecoinConfigFilePath}"`);
+        console.log(`Added Stablecoin arg 2 (config file path): "${stablecoinConfigFilePath}"`);
         
         args.push(String(stablecoinExecutionMode));
-        console.log(`Added Stablecoin arg 4 (execution mode): "${stablecoinExecutionMode}"`);
+        console.log(`Added Stablecoin arg 3 (execution mode): "${stablecoinExecutionMode}"`);
         
         args.push(String(stablecoinJurisdiction));
-        console.log(`Added Stablecoin arg 5 (jurisdiction): "${stablecoinJurisdiction}"`);
+        console.log(`Added Stablecoin arg 4 (jurisdiction): "${stablecoinJurisdiction}"`);
         break;
 
       default:
