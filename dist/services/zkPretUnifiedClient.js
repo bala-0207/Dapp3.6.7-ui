@@ -5,7 +5,6 @@ import { spawn } from 'child_process';
 import path from 'path';
 import { existsSync } from 'fs';
 import { logger } from '../utils/logger.js';
-import { modeManager } from './modeManager.js';
 class ZKPretUnifiedClient {
     httpClient;
     config;
@@ -36,36 +35,27 @@ class ZKPretUnifiedClient {
             timeout: this.config.timeout,
             headers
         });
-        // Listen to mode changes
-        modeManager.onModeChange((mode) => {
-            this.currentMode = mode;
-        });
+        // Force HTTP-only mode
+        this.currentMode = 'http';
     }
     async initialize() {
         try {
-            // Initialize mode manager first
-            await modeManager.initialize();
-            this.currentMode = modeManager.getCurrentMode();
-            // Test the current mode
+            // Force HTTP-only mode
+            this.currentMode = 'http';
+            // Test HTTP connection
             await this.healthCheck();
             this.initialized = true;
-            logger.info(`ZK-PRET started successfully on http://localhost:3000 (${this.currentMode} mode)`);
+            logger.info(`ZK-PRET started successfully on http://localhost:3000 (HTTP-only mode)`);
         }
         catch (error) {
-            logger.warn('ZK-PRET Unified Client initialization failed', {
+            logger.warn('ZK-PRET HTTP-only Client initialization failed', {
                 error: error instanceof Error ? error.message : String(error)
             });
         }
     }
     async healthCheck() {
         try {
-            const currentMode = modeManager.getCurrentMode();
-            if (currentMode === 'http') {
-                return await this.httpHealthCheck();
-            }
-            else {
-                return await this.stdioHealthCheck();
-            }
+            return await this.httpHealthCheck();
         }
         catch (error) {
             return { connected: false };
@@ -121,35 +111,19 @@ class ZKPretUnifiedClient {
     }
     async listTools() {
         try {
-            const currentMode = modeManager.getCurrentMode();
-            if (currentMode === 'http') {
-                const response = await this.httpClient.get('/api/v1/tools');
-                return response.data.tools || [];
-            }
-            else {
-                return this.getStdioTools();
-            }
+            const response = await this.httpClient.get('/api/v1/tools');
+            return response.data.tools || [];
         }
         catch (error) {
-            // Check if auto-fallback is disabled
-            if (this.config.disableAutoFallback) {
-                const errorMessage = `HTTP server connection failed at ${this.config.serverUrl}. ` +
-                    `Auto-fallback to STDIO mode is disabled. ` +
-                    `Please ensure the ZK-PRET HTTP server is running on the expected port. ` +
-                    `Original error: ${error instanceof Error ? error.message : String(error)}`;
-                logger.error('HTTP server connection failed - no fallback allowed', {
-                    serverUrl: this.config.serverUrl,
-                    disableAutoFallback: this.config.disableAutoFallback,
-                    error: error instanceof Error ? error.message : String(error)
-                });
-                throw new Error(errorMessage);
-            }
-            // Legacy behavior: fallback to STDIO tools when auto-fallback is enabled
-            logger.warn('HTTP server unavailable, falling back to STDIO tools', {
+            const errorMessage = `HTTP server connection failed at ${this.config.serverUrl}. ` +
+                `HTTP-only mode is enabled. ` +
+                `Please ensure the ZK-PRET HTTP server is running on the expected port. ` +
+                `Original error: ${error instanceof Error ? error.message : String(error)}`;
+            logger.error('HTTP server connection failed - HTTP-only mode', {
                 serverUrl: this.config.serverUrl,
                 error: error instanceof Error ? error.message : String(error)
             });
-            return this.getStdioTools();
+            throw new Error(errorMessage);
         }
     }
     getStdioTools() {
@@ -174,23 +148,15 @@ class ZKPretUnifiedClient {
     async executeTool(toolName, parameters = {}) {
         const startTime = Date.now();
         try {
-            console.log('=== UNIFIED TOOL EXECUTION START ===');
+            console.log('=== HTTP-ONLY TOOL EXECUTION START ===');
             console.log('Tool Name:', toolName);
             console.log('Parameters:', JSON.stringify(parameters, null, 2));
-            console.log('Current Mode:', this.currentMode);
-            let result;
-            const currentMode = modeManager.getCurrentMode();
-            if (currentMode === 'http') {
-                console.log('Using HTTP mode execution');
-                result = await this.executeHttpTool(toolName, parameters);
-            }
-            else {
-                console.log('Using STDIO mode execution');
-                result = await this.executeStdioTool(toolName, parameters);
-            }
+            console.log('Mode: HTTP-ONLY');
+            console.log('Using HTTP mode execution');
+            const result = await this.executeHttpTool(toolName, parameters);
             const executionTime = Date.now() - startTime;
-            console.log('=== UNIFIED TOOL EXECUTION SUCCESS ===');
-            console.log('Mode Used:', currentMode);
+            console.log('=== HTTP-ONLY TOOL EXECUTION SUCCESS ===');
+            console.log('Mode Used: http');
             console.log('Execution Time:', `${executionTime}ms`);
             console.log('Result Success:', result.success);
             console.log('==============================');
@@ -201,16 +167,16 @@ class ZKPretUnifiedClient {
                     zkProofGenerated: result.success,
                     timestamp: new Date().toISOString(),
                     output: result.output || '',
-                    executionMode: currentMode
+                    executionMode: 'http'
                 },
                 executionTime: `${executionTime}ms`
             };
         }
         catch (error) {
             const executionTime = Date.now() - startTime;
-            console.log('=== UNIFIED TOOL EXECUTION FAILED ===');
+            console.log('=== HTTP-ONLY TOOL EXECUTION FAILED ===');
             console.log('Error:', error instanceof Error ? error.message : String(error));
-            console.log('Mode Attempted:', this.currentMode);
+            console.log('Mode Attempted: http');
             console.log('Execution Time:', `${executionTime}ms`);
             console.log('=============================');
             return {
@@ -220,7 +186,7 @@ class ZKPretUnifiedClient {
                     zkProofGenerated: false,
                     timestamp: new Date().toISOString(),
                     error: error instanceof Error ? error.message : 'Unknown error',
-                    executionMode: this.currentMode
+                    executionMode: 'http'
                 },
                 executionTime: `${executionTime}ms`
             };
@@ -232,28 +198,16 @@ class ZKPretUnifiedClient {
             return response.data;
         }
         catch (error) {
-            // Check if auto-fallback is disabled
-            if (this.config.disableAutoFallback) {
-                const errorMessage = `HTTP server execution failed at ${this.config.serverUrl}. ` +
-                    `Auto-fallback to STDIO mode is disabled. ` +
-                    `Please ensure the ZK-PRET HTTP server is running and accessible. ` +
-                    `Original error: ${error instanceof Error ? error.message : String(error)}`;
-                logger.error('HTTP server execution failed - no fallback allowed', {
-                    toolName,
-                    serverUrl: this.config.serverUrl,
-                    disableAutoFallback: this.config.disableAutoFallback,
-                    error: error instanceof Error ? error.message : String(error)
-                });
-                throw new Error(errorMessage);
-            }
-            // Legacy behavior: fallback to STDIO when auto-fallback is enabled
-            logger.error('HTTP tool execution failed, attempting fallback to STDIO', {
+            const errorMessage = `HTTP server execution failed at ${this.config.serverUrl}. ` +
+                `HTTP-only mode is enabled. ` +
+                `Please ensure the ZK-PRET HTTP server is running and accessible. ` +
+                `Original error: ${error instanceof Error ? error.message : String(error)}`;
+            logger.error('HTTP server execution failed - HTTP-only mode', {
                 toolName,
+                serverUrl: this.config.serverUrl,
                 error: error instanceof Error ? error.message : String(error)
             });
-            // Attempt fallback to STDIO
-            await modeManager.switchMode('stdio', 'http-execution-failure');
-            return await this.executeStdioTool(toolName, parameters);
+            throw new Error(errorMessage);
         }
     }
     async executeStdioTool(toolName, parameters = {}) {
@@ -545,26 +499,18 @@ class ZKPretUnifiedClient {
         return args;
     }
     getServerUrl() {
-        const currentMode = modeManager.getCurrentMode();
-        if (currentMode === 'http') {
-            return this.config.serverUrl;
-        }
-        else {
-            return `stdio://${this.config.stdioPath}`;
-        }
+        return this.config.serverUrl;
     }
     async getServerStatus() {
         try {
-            const currentMode = modeManager.getCurrentMode();
-            const modeStatus = await modeManager.getStatus();
+            const healthStatus = await this.healthCheck();
             return {
-                connected: true,
-                status: 'healthy',
+                connected: healthStatus.connected,
+                status: healthStatus.connected ? 'healthy' : 'disconnected',
                 timestamp: new Date().toISOString(),
                 serverUrl: this.getServerUrl(),
-                serverType: 'unified',
-                mode: currentMode,
-                modeStatus: modeStatus
+                serverType: 'http-only',
+                mode: 'http'
             };
         }
         catch (error) {
@@ -573,7 +519,7 @@ class ZKPretUnifiedClient {
                 status: 'disconnected',
                 timestamp: new Date().toISOString(),
                 serverUrl: this.getServerUrl(),
-                serverType: 'unified',
+                serverType: 'http-only',
                 error: error instanceof Error ? error.message : 'Unknown error'
             };
         }
