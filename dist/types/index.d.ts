@@ -1,4 +1,3 @@
-export * from './composedProofs.js';
 export interface ToolExecutionRequest {
     toolName: string;
     parameters?: any;

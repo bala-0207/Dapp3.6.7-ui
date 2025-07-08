@@ -6,7 +6,7 @@ import { spawn } from 'child_process';
 import path from 'path';
 import { existsSync } from 'fs';
 import { logger } from '../utils/logger.js';
-import { modeManager } from './modeManager.js';
+
 import type { ZKPretServerResponse, ToolExecutionResult, ServerStatus, ZKPretClientConfig } from '../types/index.js';
 
 class ZKPretUnifiedClient {

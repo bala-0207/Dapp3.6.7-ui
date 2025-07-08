@@ -1,8 +1,5 @@
 // ZK-PRET-WEB-APP Type Definitions
 
-// Export composed proof types
-export * from './composedProofs.js';
-
 export interface ToolExecutionRequest {
   toolName: string;
   parameters?: any;
